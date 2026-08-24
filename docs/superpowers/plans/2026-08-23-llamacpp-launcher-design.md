@@ -1874,6 +1874,9 @@ public class LauncherBootstrapperTests : IDisposable
         StartupDecision decision = CreateBootstrapper().Decide();
 
         Assert.Equal(StartupAction.StayOffWithNotification, decision.Action);
+        // This config also has no default model configured (Models is empty), so this assertion
+        // pins that validation errors take precedence over the "no default model" message.
+        Assert.Contains("executable not found", decision.Message);
     }
 
     [Fact]
