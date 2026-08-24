@@ -9,6 +9,9 @@ public sealed class LlamaServerProcessManager : IDisposable
     private readonly string _outLogPath;
     private readonly string _errLogPath;
     private Process? _process;
+    private StreamWriter? _outWriter;
+    private StreamWriter? _errWriter;
+    private bool _isStopping;
 
     public event EventHandler? ServerExited;
 
@@ -54,15 +57,16 @@ public sealed class LlamaServerProcessManager : IDisposable
 
         process.Start();
 
-        var outWriter = new StreamWriter(_outLogPath, append: false) { AutoFlush = true };
-        var errWriter = new StreamWriter(_errLogPath, append: false) { AutoFlush = true };
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) outWriter.WriteLine(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) errWriter.WriteLine(e.Data); };
+        _outWriter = new StreamWriter(_outLogPath, append: false) { AutoFlush = true };
+        _errWriter = new StreamWriter(_errLogPath, append: false) { AutoFlush = true };
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) _outWriter?.WriteLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) _errWriter?.WriteLine(e.Data); };
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
         _process = process;
         RunningModel = profile;
+        _isStopping = false;
     }
 
     public void Stop()
@@ -72,20 +76,35 @@ public sealed class LlamaServerProcessManager : IDisposable
             return;
         }
 
+        _isStopping = true;
+
         if (!_process.HasExited)
         {
             _process.Kill(entireProcessTree: true);
             _process.WaitForExit(5000);
+            _process.WaitForExit();
         }
 
         _process.Exited -= OnProcessExited;
         _process.Dispose();
         _process = null;
         RunningModel = null;
+
+        _outWriter?.Dispose();
+        _errWriter?.Dispose();
+        _outWriter = null;
+        _errWriter = null;
+
+        _isStopping = false;
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
+        if (_isStopping)
+        {
+            return;
+        }
+
         RunningModel = null;
         ServerExited?.Invoke(this, EventArgs.Empty);
     }
