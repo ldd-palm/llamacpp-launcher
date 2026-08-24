@@ -407,7 +407,16 @@ public sealed class ConfigService
             return null;
         }
 
-        string json = File.ReadAllText(_configFilePath);
+        string json;
+        try
+        {
+            json = File.ReadAllText(_configFilePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConfigLoadException("Configuration file could not be read.", ex);
+        }
+
         try
         {
             return JsonSerializer.Deserialize<AppConfig>(json)
@@ -434,6 +443,8 @@ public sealed class ConfigService
 ```
 
 Note for this file and every later production file (not test file) in `src/LlamaCppLauncher` that uses `File`/`Directory`/`Path`/`Stream`: this project has `UseWPF` and `UseWindowsForms` both enabled, which changes the SDK's implicit-usings set to `System`, `System.Collections.Generic`, `System.Drawing`, `System.Linq`, `System.Threading`, `System.Threading.Tasks`, `System.Windows.Forms` — **`System.IO` is not in that list**, unlike a plain library/test project. An explicit `using System.IO;` (as added above) is required wherever this project's code uses those types; the test project doesn't have this problem since it isn't a WPF/WinForms project. Later task code blocks in this plan already include `using System.IO;` where needed for this same reason.
+
+`Load()` wraps two different failure sources into `ConfigLoadException`: the `File.ReadAllText` call (an unreadable file — locked by another process, permissions denied) and the JSON parse itself. This matters because every caller in this plan (Task 11's `LauncherBootstrapper`, Task 21's `App.xaml.cs`) only catches `ConfigLoadException`, not raw `IOException`/`UnauthorizedAccessException` — without this wrapping, a locked or permission-denied config file would crash the app at startup with an unhandled exception instead of degrading to the same "corrupted config, open Settings" behavior as a bad-JSON file. There's no dedicated unit test for this branch: reliably forcing an `IOException`/`UnauthorizedAccessException` from a hermetic test (without depending on OS-specific file-locking or permission behavior that isn't portable/reliable in CI) isn't worth the complexity here — the existing `Load_ThrowsConfigLoadException_WhenFileIsNotValidJson` test already proves the wrapping pattern works for the JSON-parse branch, and this branch is a straightforward, low-risk extension of the same pattern.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
