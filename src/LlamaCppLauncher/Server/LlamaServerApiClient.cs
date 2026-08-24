@@ -19,7 +19,7 @@ public sealed class LlamaServerApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.GetAsync(url, cancellationToken);
+            response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException)
         {
@@ -35,7 +35,7 @@ public sealed class LlamaServerApiClient
             return null;
         }
 
-        string json = await response.Content.ReadAsStringAsync(cancellationToken);
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         ModelsApiResponse? parsed;
         try
         {
