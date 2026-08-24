@@ -1,0 +1,62 @@
+<!-- src/LlamaCppLauncher/About/AboutWindow.xaml -->
+<ui:FluentWindow
+  x:Class="LlamaCppLauncher.About.AboutWindow"
+  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:local="clr-namespace:LlamaCppLauncher.About"
+  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+  Title="About — llama.cpp Launcher"
+  Width="420"
+  Height="440"
+  ExtendsContentIntoTitleBar="True"
+  ResizeMode="NoResize"
+  WindowBackdropType="Mica"
+  WindowCornerPreference="Round"
+  WindowStartupLocation="CenterScreen"
+  >
+  <Window.Resources>
+    <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    <local:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
+  </Window.Resources>
+  <Grid Margin="16">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="Auto" />
+      <RowDefinition Height="*" />
+      <RowDefinition Height="Auto" />
+    </Grid.RowDefinitions>
+
+    <ui:TitleBar Grid.Row="0" Title="About" />
+
+    <StackPanel Grid.Row="1" Margin="0,12,0,0" Visibility="{Binding IsServiceRunning, Converter={StaticResource BoolToVis}}">
+      <TextBlock FontWeight="SemiBold" Text="File name" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding FileName}" />
+
+      <TextBlock FontWeight="SemiBold" Text="Alias" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding Alias}" />
+
+      <TextBlock FontWeight="SemiBold" Text="Web Chat URL" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding WebChatUrl}" />
+
+      <TextBlock FontWeight="SemiBold" Text="API URL" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding ApiUrl}" />
+
+      <TextBlock FontWeight="SemiBold" Text="Quantization" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding Quantization}" />
+
+      <TextBlock FontWeight="SemiBold" Text="Total Params" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding TotalParams}" />
+
+      <TextBlock FontWeight="SemiBold" Text="Context Size" />
+      <TextBlock Margin="0,0,0,8" Text="{Binding ContextSize}" />
+    </StackPanel>
+
+    <TextBlock Grid.Row="1" Margin="0,12,0,0" Text="No model is currently running." Visibility="{Binding IsServiceRunning, Converter={StaticResource InverseBoolToVis}}" />
+
+    <Button Grid.Row="2" Margin="0,16,0,0" HorizontalAlignment="Left" Background="Transparent" BorderThickness="0" Cursor="Hand" Click="OnProjectHomepageClick">
+      <StackPanel Orientation="Horizontal">
+        <Image Width="24" Height="24" Source="pack://application:,,,/Assets/llamacpp.png" />
+        <TextBlock Margin="8,0,0,0" VerticalAlignment="Center" Text="llama.cpp on GitHub" />
+      </StackPanel>
+    </Button>
+  </Grid>
+</ui:FluentWindow>
