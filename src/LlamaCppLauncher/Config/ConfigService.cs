@@ -26,7 +26,16 @@ public sealed class ConfigService
             return null;
         }
 
-        string json = File.ReadAllText(_configFilePath);
+        string json;
+        try
+        {
+            json = File.ReadAllText(_configFilePath);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new ConfigLoadException("Configuration file could not be read.", ex);
+        }
+
         try
         {
             return JsonSerializer.Deserialize<AppConfig>(json)
