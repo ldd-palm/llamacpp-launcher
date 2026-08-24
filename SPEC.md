@@ -84,7 +84,8 @@ without requiring a save. Values only take effect in `config.json` when the user
 ### 4.2 Models page
 
 - Dropdown to select one discovered `.gguf` file.
-- Per-model parameter form:
+- Per-model parameter form (a newly-discovered model is pre-filled with the defaults
+  below, editable per model):
   - **Alias**
   - **CTX_SIZE**
   - **N_GPU_LAYERS**
@@ -99,6 +100,20 @@ without requiring a save. Values only take effect in `config.json` when the user
 - Switching the dropdown to a different model while the current form has unsaved edits
   prompts the user before discarding changes.
 - **Save this model's configuration** writes/updates that model's entry in `config.json`.
+
+#### Parameter defaults & descriptions
+
+| Parameter | Flag | Default | Description |
+|---|---|---|---|
+| Alias | `--alias` | .gguf filename without extension | Friendly name shown in the Switch menu, About window, and API responses. |
+| CTX_SIZE | `-c` | `8192` | Context window size (max tokens of prompt + generation). llama-server's own built-in default is 4096; the launcher defaults higher for more headroom. |
+| N_GPU_LAYERS | `-ngl` | `0` | Number of model layers offloaded to GPU. `0` = CPU-only inference, the safest default across GPUs/drivers; increase to offload layers to GPU once VRAM/driver stability is confirmed. |
+| KV cache quantization | `-ctk` / `-ctv` | `q8_0` | Precision used to store the attention KV cache. `q8_0` cuts memory use substantially versus full precision (`f16`) with minimal quality loss. |
+| Threads | `--threads` | *Auto* (field left blank) | CPU threads used for inference. Left blank tells llama-server to auto-detect based on available cores; set explicitly to pin a thread count. |
+| Batch size | `-b` | `2048` | Max tokens processed per batch during prompt evaluation. Higher values can speed up prompt processing at the cost of more memory. |
+| Flash Attention | `--flash-attn` | Off (unchecked) | Enables the Flash Attention kernel. Can reduce memory use and improve speed when the backend/model supports it; left off by default for broadest compatibility. |
+| Default Model | — | None until set | No model is Default out of the box — the user must designate exactly one before the launcher can auto-start on boot / Service On. |
+| Extra command-line arguments | — | *(empty)* | Free-text flags appended verbatim to the launch command; empty by default. |
 
 ### 4.3 Save semantics
 
