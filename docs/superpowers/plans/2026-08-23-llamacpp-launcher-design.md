@@ -2370,6 +2370,33 @@ public class GeneralSettingsViewModelTests : IDisposable
         Assert.Null(viewModel.ExecutablePathError);
         Assert.Equal("Found 1 model.", viewModel.ModelsDirectoryStatus);
         Assert.True(viewModel.StartWithWindows);
+        // Port (8080) equals the ViewModel field's own compile-time default, so CommunityToolkit.Mvvm's
+        // generated setter would skip OnPortChanged/RevalidatePort for this field specifically if FromConfig
+        // relied only on the object-initializer assignment. PortStatusText defaults to null and is only ever
+        // set by RevalidatePort, so asserting it here is what actually proves RevalidateAll() ran.
+        Assert.Equal("Port is available.", viewModel.PortStatusText);
+    }
+
+    [Fact]
+    public void RevalidateModelsDirectory_ReportsDirectoryNotFound_WhenDirectoryMissing()
+    {
+        var viewModel = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free));
+
+        viewModel.ModelsDirectory = Path.Combine(_tempDir, "missing-dir");
+
+        Assert.Equal("Directory not found.", viewModel.ModelsDirectoryStatus);
+    }
+
+    [Fact]
+    public void RevalidateModelsDirectory_ReportsNoGgufFiles_WhenDirectoryIsEmpty()
+    {
+        string emptyDir = Path.Combine(_tempDir, "empty-models");
+        Directory.CreateDirectory(emptyDir);
+        var viewModel = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free));
+
+        viewModel.ModelsDirectory = emptyDir;
+
+        Assert.Equal("No .gguf files found.", viewModel.ModelsDirectoryStatus);
     }
 
     [Fact]
@@ -2521,7 +2548,7 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `dotnet test src/LlamaCppLauncher.sln --filter GeneralSettingsViewModelTests`
-Expected: `Passed! - Failed: 0, Passed: 7`.
+Expected: `Passed! - Failed: 0, Passed: 9`.
 
 - [ ] **Step 5: Commit**
 
