@@ -1316,6 +1316,27 @@ public class LlamaServerApiClientTests
 
         Assert.Null(info);
     }
+
+    [Fact]
+    public async Task GetRunningModelInfoAsync_FallsBackToUnknown_WhenMetaIsMissing()
+    {
+        const string json = """
+        {
+          "data": [
+            { "id": "Qwen2.5-7B" }
+          ]
+        }
+        """;
+        var client = new LlamaServerApiClient(new HttpClient(new StubHttpMessageHandler(HttpStatusCode.OK, json)));
+
+        RunningModelInfo? info = await client.GetRunningModelInfoAsync("127.0.0.1", 8080);
+
+        Assert.NotNull(info);
+        Assert.Equal("Qwen2.5-7B", info!.Alias);
+        Assert.Equal(0, info.ContextSize);
+        Assert.Equal("Unknown", info.Quantization);
+        Assert.Equal("Unknown", info.TotalParams);
+    }
 }
 ```
 
@@ -1407,6 +1428,10 @@ public sealed class LlamaServerApiClient
         {
             return null;
         }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
 
         if (!response.IsSuccessStatusCode)
         {
@@ -1414,7 +1439,15 @@ public sealed class LlamaServerApiClient
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        ModelsApiResponse? parsed = JsonSerializer.Deserialize<ModelsApiResponse>(json);
+        ModelsApiResponse? parsed;
+        try
+        {
+            parsed = JsonSerializer.Deserialize<ModelsApiResponse>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
 
         if (parsed is null || parsed.Data.Count == 0)
         {
@@ -1434,7 +1467,9 @@ public sealed class LlamaServerApiClient
 - [ ] **Step 4: Run tests to verify they pass**
 
 Run: `dotnet test src/LlamaCppLauncher.sln --filter "ParamFormatterTests|LlamaServerApiClientTests"`
-Expected: `Passed! - Failed: 0, Passed: 7`.
+Expected: `Passed! - Failed: 0, Passed: 8`.
+
+`GetRunningModelInfoAsync` now also catches `TaskCanceledException` (an `HttpClient`-internal timeout — the default `HttpClient.Timeout` is 100 seconds, and a slow/hung `llama-server` would otherwise throw this uncaught) and `JsonException` (a malformed or unexpectedly-shaped response body), alongside the original `HttpRequestException`. This matters because Task 18's `TrayController.BuildAboutViewModel` calls this method synchronously via `.GetAwaiter().GetResult()` — an uncaught exception there would surface as an unhandled exception when the user opens the About window, not a graceful "no info available" state. The `when (!cancellationToken.IsCancellationRequested)` guard on the `TaskCanceledException` catch specifically distinguishes "the caller asked us to cancel" (which should still propagate as a real cancellation) from "the HTTP call itself timed out" (which should degrade to `null` like every other failure mode here).
 
 - [ ] **Step 5: Commit**
 
