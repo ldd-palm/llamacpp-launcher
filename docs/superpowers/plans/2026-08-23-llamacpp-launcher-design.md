@@ -1422,7 +1422,7 @@ public sealed class LlamaServerApiClient
         HttpResponseMessage response;
         try
         {
-            response = await _httpClient.GetAsync(url, cancellationToken);
+            response = await _httpClient.GetAsync(url, cancellationToken).ConfigureAwait(false);
         }
         catch (HttpRequestException)
         {
@@ -1438,7 +1438,7 @@ public sealed class LlamaServerApiClient
             return null;
         }
 
-        string json = await response.Content.ReadAsStringAsync(cancellationToken);
+        string json = await response.Content.ReadAsStringAsync(cancellationToken).ConfigureAwait(false);
         ModelsApiResponse? parsed;
         try
         {
@@ -1470,6 +1470,8 @@ Run: `dotnet test src/LlamaCppLauncher.sln --filter "ParamFormatterTests|LlamaSe
 Expected: `Passed! - Failed: 0, Passed: 8`.
 
 `GetRunningModelInfoAsync` now also catches `TaskCanceledException` (an `HttpClient`-internal timeout — the default `HttpClient.Timeout` is 100 seconds, and a slow/hung `llama-server` would otherwise throw this uncaught) and `JsonException` (a malformed or unexpectedly-shaped response body), alongside the original `HttpRequestException`. This matters because Task 18's `TrayController.BuildAboutViewModel` calls this method synchronously via `.GetAwaiter().GetResult()` — an uncaught exception there would surface as an unhandled exception when the user opens the About window, not a graceful "no info available" state. The `when (!cancellationToken.IsCancellationRequested)` guard on the `TaskCanceledException` catch specifically distinguishes "the caller asked us to cancel" (which should still propagate as a real cancellation) from "the HTTP call itself timed out" (which should degrade to `null` like every other failure mode here).
+
+Both `await`s also carry `.ConfigureAwait(false)`. This was added after Task 18's review empirically reproduced a real UI-thread deadlock: `BuildAboutViewModel()` blocks synchronously on this method via `.GetAwaiter().GetResult()`, called from the "About" menu item on the same thread that pumps WPF's `Dispatcher` (this app has no separate WinForms message loop — `NotifyIcon`/`ContextMenuStrip` ride on the WPF dispatcher). Without `ConfigureAwait(false)`, this method's internal awaits try to resume on that same captured `DispatcherSynchronizationContext` — the exact thread already blocked waiting for them, so opening "About" while a model is running would freeze the entire application. `ConfigureAwait(false)` lets the continuations resume on a thread-pool thread instead, which is safe here since this method has no UI dependency of its own.
 
 - [ ] **Step 5: Commit**
 
@@ -3172,6 +3174,7 @@ public sealed class TrayController : IDisposable
     private readonly Forms.NotifyIcon _notifyIcon;
 
     private AppConfig _config = new();
+    private bool _isTransitioning;
 
     public event EventHandler? SettingsRequested;
     public event EventHandler? AboutRequested;
@@ -3239,29 +3242,42 @@ public sealed class TrayController : IDisposable
 
     public async Task ToggleServiceAsync()
     {
-        if (_processManager.IsRunning)
+        if (_isTransitioning)
         {
-            StopServer();
+            return;
         }
-        else
+
+        _isTransitioning = true;
+        try
         {
-            ValidationResult validation = _validationService.ValidateGeneral(_config);
-            if (!validation.IsValid)
+            if (_processManager.IsRunning)
             {
-                ShowBalloon("llama.cpp Launcher", string.Join(" ", validation.Errors), isError: true);
+                StopServer();
             }
             else
             {
-                ModelProfile? defaultModel = _config.Models.FirstOrDefault(m => m.IsDefault);
-                if (defaultModel is null)
+                ValidationResult validation = _validationService.ValidateGeneral(_config);
+                if (!validation.IsValid)
                 {
-                    ShowBalloon("llama.cpp Launcher", "No default model is configured. Open Settings to choose one.", isError: true);
+                    ShowBalloon("llama.cpp Launcher", string.Join(" ", validation.Errors), isError: true);
                 }
                 else
                 {
-                    await StartServerAsync(defaultModel);
+                    ModelProfile? defaultModel = _config.Models.FirstOrDefault(m => m.IsDefault);
+                    if (defaultModel is null)
+                    {
+                        ShowBalloon("llama.cpp Launcher", "No default model is configured. Open Settings to choose one.", isError: true);
+                    }
+                    else
+                    {
+                        await StartServerAsync(defaultModel);
+                    }
                 }
             }
+        }
+        finally
+        {
+            _isTransitioning = false;
         }
 
         RefreshMenu();
@@ -3269,6 +3285,11 @@ public sealed class TrayController : IDisposable
 
     public async Task SwitchToAsync(string fileName)
     {
+        if (_isTransitioning)
+        {
+            return;
+        }
+
         ModelProfile? target = _config.Models.FirstOrDefault(m =>
             string.Equals(m.FileName, fileName, StringComparison.OrdinalIgnoreCase));
         if (target is null)
@@ -3276,8 +3297,17 @@ public sealed class TrayController : IDisposable
             return;
         }
 
-        StopServer();
-        await StartServerAsync(target);
+        _isTransitioning = true;
+        try
+        {
+            StopServer();
+            await StartServerAsync(target);
+        }
+        finally
+        {
+            _isTransitioning = false;
+        }
+
         RefreshMenu();
     }
 
@@ -3415,6 +3445,7 @@ public sealed class TrayController : IDisposable
 }
 ```
 
+`_isTransitioning` guards `ToggleServiceAsync`/`SwitchToAsync` against reentrancy. Without it, a second click while the first click's up-to-10-second `WaitForPortToBindAsync()` is still in flight is a real, user-triggerable bug, not just a cosmetic double-notification: `LlamaServerProcessManager.IsRunning` flips `true` the instant `Start()` returns, well before the port-bind wait confirms success, so a second `SwitchToAsync` can call `StopServer()` on the *first* switch's freshly-started (or about-to-be-declared-failed) process, corrupting which model `_config.LastRunningModelFileName` ends up pointing at (and therefore the Switch submenu's `●` marker) or killing a server the user just successfully switched to. The guard makes a second click during an in-flight transition a no-op instead of interleaving with the first.
 `NotifyIcon.Text` is capped at 63 characters by the underlying Win32 API — `Truncate` avoids an `ArgumentException` for a long alias/tooltip. The `async (_, _) => await ...` click handlers are `async void` event handlers, the standard (if imperfect) WinForms/WPF pattern for firing off async work from a UI event — every awaited call already wraps its own failure paths in a `try`/`catch` that shows a balloon instead of letting an exception escape.
 
 - [ ] **Step 2: Build to verify it compiles**
