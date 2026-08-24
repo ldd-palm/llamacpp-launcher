@@ -25,6 +25,7 @@ public partial class App : System.Windows.Application
     private ConfigService? _configService;
     private AutoStartService? _autoStartService;
     private LlamaServerProcessManager? _processManager;
+    private SettingsWindow? _settingsWindow;
 
     protected override async void OnStartup(StartupEventArgs e)
     {
@@ -44,7 +45,7 @@ public partial class App : System.Windows.Application
 
         _configService = new ConfigService(configPath);
         var portProbe = new TcpPortProbe();
-        var portChecker = new PortCheckService(portProbe, GetConfiguredExecutablePath(_configService));
+        var portChecker = new PortCheckService(portProbe, () => _trayController?.CurrentConfig.ExecutablePath ?? GetConfiguredExecutablePath(_configService));
         var validationService = new ValidationService(portChecker);
         _processManager = new LlamaServerProcessManager(
             Path.Combine(logDirectory, "llama-server.out.log"),
@@ -82,19 +83,29 @@ public partial class App : System.Windows.Application
 
     private void OpenSettings()
     {
+        if (_settingsWindow is not null)
+        {
+            _settingsWindow.Activate();
+            return;
+        }
+
         AppConfig config = _trayController!.CurrentConfig;
         IReadOnlyList<string> discovered = ModelDiscoveryService.DiscoverModelFiles(config.ModelsDirectory);
         List<ModelProfile> mergedModels = ModelDiscoveryService.MergeWithConfiguredModels(discovered, config.Models);
 
-        var portChecker = new PortCheckService(new TcpPortProbe(), config.ExecutablePath);
+        var portChecker = new PortCheckService(new TcpPortProbe(), () => config.ExecutablePath);
         GeneralSettingsViewModel generalViewModel = GeneralSettingsViewModel.FromConfig(config, portChecker);
         var modelsViewModel = new ModelsSettingsViewModel(mergedModels);
         var settingsViewModel = new SettingsViewModel(
             config, generalViewModel, modelsViewModel, _configService!, _autoStartService!, _trayController!.RunningModelFileName);
 
-        var window = new SettingsWindow(settingsViewModel);
-        window.Closed += (_, _) => _trayController!.ReloadConfigAfterSettingsSaved();
-        window.Show();
+        _settingsWindow = new SettingsWindow(settingsViewModel);
+        _settingsWindow.Closed += (_, _) =>
+        {
+            _trayController!.ReloadConfigAfterSettingsSaved();
+            _settingsWindow = null;
+        };
+        _settingsWindow.Show();
     }
 
     private void OpenAbout()

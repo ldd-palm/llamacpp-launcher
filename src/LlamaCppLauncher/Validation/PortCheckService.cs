@@ -5,12 +5,12 @@ namespace LlamaCppLauncher.Validation;
 public sealed class PortCheckService : IPortChecker
 {
     private readonly ITcpPortProbe _portProbe;
-    private readonly string _launcherExecutablePath;
+    private readonly Func<string> _launcherExecutablePathProvider;
 
-    public PortCheckService(ITcpPortProbe portProbe, string launcherExecutablePath)
+    public PortCheckService(ITcpPortProbe portProbe, Func<string> launcherExecutablePathProvider)
     {
         _portProbe = portProbe;
-        _launcherExecutablePath = launcherExecutablePath;
+        _launcherExecutablePathProvider = launcherExecutablePathProvider;
     }
 
     public PortStatus GetStatus(int port)
@@ -22,7 +22,8 @@ public sealed class PortCheckService : IPortChecker
 
     private bool IsLauncherManagedProcessRunning()
     {
-        if (string.IsNullOrEmpty(_launcherExecutablePath))
+        string launcherExecutablePath = _launcherExecutablePathProvider();
+        if (string.IsNullOrEmpty(launcherExecutablePath))
         {
             return false;
         }
@@ -31,7 +32,7 @@ public sealed class PortCheckService : IPortChecker
         {
             try
             {
-                if (string.Equals(process.MainModule?.FileName, _launcherExecutablePath, StringComparison.OrdinalIgnoreCase))
+                if (string.Equals(process.MainModule?.FileName, launcherExecutablePath, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }

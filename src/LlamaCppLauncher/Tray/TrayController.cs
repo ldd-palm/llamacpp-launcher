@@ -198,11 +198,17 @@ public sealed class TrayController : IDisposable
 
         if (!await WaitForPortToBindAsync())
         {
-            StopServer();
-            ShowBalloon(
-                "llama.cpp Launcher",
-                $"The server did not start listening on port {_config.Port} within {PortBindTimeout.TotalSeconds:0} seconds. Check the error log for details.",
-                isError: true);
+            if (_processManager.IsRunning)
+            {
+                StopServer();
+                ShowBalloon(
+                    "llama.cpp Launcher",
+                    $"The server did not start listening on port {_config.Port} within {PortBindTimeout.TotalSeconds:0} seconds. Check the error log for details.",
+                    isError: true);
+            }
+
+            // If the process already exited, the ServerExited handler already showed
+            // an accurate balloon and refreshed the menu — avoid a duplicate notification.
             return;
         }
 
@@ -217,6 +223,10 @@ public sealed class TrayController : IDisposable
             if (_portProbe.IsPortListening(_config.Port))
             {
                 return true;
+            }
+            if (!_processManager.IsRunning)
+            {
+                return false;
             }
             await Task.Delay(250);
         }
