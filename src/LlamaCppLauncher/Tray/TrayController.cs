@@ -24,6 +24,7 @@ public sealed class TrayController : IDisposable
     private readonly Forms.NotifyIcon _notifyIcon;
 
     private AppConfig _config = new();
+    private bool _isTransitioning;
 
     public event EventHandler? SettingsRequested;
     public event EventHandler? AboutRequested;
@@ -91,29 +92,42 @@ public sealed class TrayController : IDisposable
 
     public async Task ToggleServiceAsync()
     {
-        if (_processManager.IsRunning)
+        if (_isTransitioning)
         {
-            StopServer();
+            return;
         }
-        else
+
+        _isTransitioning = true;
+        try
         {
-            ValidationResult validation = _validationService.ValidateGeneral(_config);
-            if (!validation.IsValid)
+            if (_processManager.IsRunning)
             {
-                ShowBalloon("llama.cpp Launcher", string.Join(" ", validation.Errors), isError: true);
+                StopServer();
             }
             else
             {
-                ModelProfile? defaultModel = _config.Models.FirstOrDefault(m => m.IsDefault);
-                if (defaultModel is null)
+                ValidationResult validation = _validationService.ValidateGeneral(_config);
+                if (!validation.IsValid)
                 {
-                    ShowBalloon("llama.cpp Launcher", "No default model is configured. Open Settings to choose one.", isError: true);
+                    ShowBalloon("llama.cpp Launcher", string.Join(" ", validation.Errors), isError: true);
                 }
                 else
                 {
-                    await StartServerAsync(defaultModel);
+                    ModelProfile? defaultModel = _config.Models.FirstOrDefault(m => m.IsDefault);
+                    if (defaultModel is null)
+                    {
+                        ShowBalloon("llama.cpp Launcher", "No default model is configured. Open Settings to choose one.", isError: true);
+                    }
+                    else
+                    {
+                        await StartServerAsync(defaultModel);
+                    }
                 }
             }
+        }
+        finally
+        {
+            _isTransitioning = false;
         }
 
         RefreshMenu();
@@ -121,6 +135,11 @@ public sealed class TrayController : IDisposable
 
     public async Task SwitchToAsync(string fileName)
     {
+        if (_isTransitioning)
+        {
+            return;
+        }
+
         ModelProfile? target = _config.Models.FirstOrDefault(m =>
             string.Equals(m.FileName, fileName, StringComparison.OrdinalIgnoreCase));
         if (target is null)
@@ -128,8 +147,17 @@ public sealed class TrayController : IDisposable
             return;
         }
 
-        StopServer();
-        await StartServerAsync(target);
+        _isTransitioning = true;
+        try
+        {
+            StopServer();
+            await StartServerAsync(target);
+        }
+        finally
+        {
+            _isTransitioning = false;
+        }
+
         RefreshMenu();
     }
 
