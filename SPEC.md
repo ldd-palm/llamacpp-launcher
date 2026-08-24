@@ -125,8 +125,8 @@ the running server (same approach as the existing bat script's status check).
 If Service is Off, the window shows a "No model is currently running" state instead of
 the table above.
 
-At the bottom of the window: a GitHub icon + link to the llama.cpp project homepage
-(`https://github.com/ggml-org/llama.cpp`).
+At the bottom of the window: the llama.cpp logo (`images\llamacpp.png`) as a clickable
+link to the project homepage (`https://github.com/ggml-org/llama.cpp`).
 
 ## 6. Error Handling & Edge Cases
 
