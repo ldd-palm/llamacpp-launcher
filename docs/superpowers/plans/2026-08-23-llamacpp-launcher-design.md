@@ -2143,6 +2143,9 @@ public sealed class LlamaServerProcessManager : IDisposable
     private readonly string _outLogPath;
     private readonly string _errLogPath;
     private Process? _process;
+    private StreamWriter? _outWriter;
+    private StreamWriter? _errWriter;
+    private bool _isStopping;
 
     public event EventHandler? ServerExited;
 
@@ -2188,15 +2191,16 @@ public sealed class LlamaServerProcessManager : IDisposable
 
         process.Start();
 
-        var outWriter = new StreamWriter(_outLogPath, append: false) { AutoFlush = true };
-        var errWriter = new StreamWriter(_errLogPath, append: false) { AutoFlush = true };
-        process.OutputDataReceived += (_, e) => { if (e.Data is not null) outWriter.WriteLine(e.Data); };
-        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) errWriter.WriteLine(e.Data); };
+        _outWriter = new StreamWriter(_outLogPath, append: false) { AutoFlush = true };
+        _errWriter = new StreamWriter(_errLogPath, append: false) { AutoFlush = true };
+        process.OutputDataReceived += (_, e) => { if (e.Data is not null) _outWriter?.WriteLine(e.Data); };
+        process.ErrorDataReceived += (_, e) => { if (e.Data is not null) _errWriter?.WriteLine(e.Data); };
         process.BeginOutputReadLine();
         process.BeginErrorReadLine();
 
         _process = process;
         RunningModel = profile;
+        _isStopping = false;
     }
 
     public void Stop()
@@ -2206,20 +2210,35 @@ public sealed class LlamaServerProcessManager : IDisposable
             return;
         }
 
+        _isStopping = true;
+
         if (!_process.HasExited)
         {
             _process.Kill(entireProcessTree: true);
             _process.WaitForExit(5000);
+            _process.WaitForExit();
         }
 
         _process.Exited -= OnProcessExited;
         _process.Dispose();
         _process = null;
         RunningModel = null;
+
+        _outWriter?.Dispose();
+        _errWriter?.Dispose();
+        _outWriter = null;
+        _errWriter = null;
+
+        _isStopping = false;
     }
 
     private void OnProcessExited(object? sender, EventArgs e)
     {
+        if (_isStopping)
+        {
+            return;
+        }
+
         RunningModel = null;
         ServerExited?.Invoke(this, EventArgs.Empty);
     }
@@ -2227,6 +2246,11 @@ public sealed class LlamaServerProcessManager : IDisposable
     public void Dispose() => Stop();
 }
 ```
+
+Two fixes versus an earlier draft of this class, both found by code review and confirmed as real (one reproduced empirically, one confirmed against Microsoft's own documented `Process.WaitForExit(Int32)` caveat):
+
+1. **`_outWriter`/`_errWriter` are now fields, explicitly disposed in `Stop()`.** They used to be local variables never disposed anywhere — `Process.Dispose()` has no knowledge of them, so each `Start()`/`Stop()` cycle leaked two open file handles. Since `StreamWriter(path, append: false)` opens with `FileShare.Read` (no concurrent writers allowed), a leaked handle from a previous `Start()` causes the *next* `Start()`'s `new StreamWriter(_outLogPath, append: false)` to throw `IOException: ...being used by another process` — which would break Task 18's `SwitchTo()` (`StopServer(); StartServer(...)`) on literally every second model switch.
+2. **`Stop()` now sets an `_isStopping` flag before calling `Kill()`, and `OnProcessExited` no-ops while it's set.** `Process.Exited` is raised asynchronously on a ThreadPool callback tied to the OS process handle being signaled — it is not guaranteed to have already fired (or to never fire) by the time `WaitForExit(int)` returns; Microsoft's own docs on that overload say to follow it with the parameterless `WaitForExit()` to be sure async event handling has actually completed, which this code now also does. Without the `_isStopping` guard, a user clicking "Service: Off" could race `OnProcessExited` into firing anyway, raising the public `ServerExited` "unexpected crash" event and causing Task 18's `TrayController` to show a spurious "server exited unexpectedly" balloon for what was actually a normal, user-requested stop.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
