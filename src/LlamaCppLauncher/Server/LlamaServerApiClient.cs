@@ -25,6 +25,10 @@ public sealed class LlamaServerApiClient
         {
             return null;
         }
+        catch (TaskCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return null;
+        }
 
         if (!response.IsSuccessStatusCode)
         {
@@ -32,7 +36,15 @@ public sealed class LlamaServerApiClient
         }
 
         string json = await response.Content.ReadAsStringAsync(cancellationToken);
-        ModelsApiResponse? parsed = JsonSerializer.Deserialize<ModelsApiResponse>(json);
+        ModelsApiResponse? parsed;
+        try
+        {
+            parsed = JsonSerializer.Deserialize<ModelsApiResponse>(json);
+        }
+        catch (JsonException)
+        {
+            return null;
+        }
 
         if (parsed is null || parsed.Data.Count == 0)
         {

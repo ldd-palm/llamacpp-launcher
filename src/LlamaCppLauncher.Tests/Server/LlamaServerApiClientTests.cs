@@ -63,4 +63,25 @@ public class LlamaServerApiClientTests
 
         Assert.Null(info);
     }
+
+    [Fact]
+    public async Task GetRunningModelInfoAsync_FallsBackToUnknown_WhenMetaIsMissing()
+    {
+        const string json = """
+        {
+          "data": [
+            { "id": "Qwen2.5-7B" }
+          ]
+        }
+        """;
+        var client = new LlamaServerApiClient(new HttpClient(new StubHttpMessageHandler(HttpStatusCode.OK, json)));
+
+        RunningModelInfo? info = await client.GetRunningModelInfoAsync("127.0.0.1", 8080);
+
+        Assert.NotNull(info);
+        Assert.Equal("Qwen2.5-7B", info!.Alias);
+        Assert.Equal(0, info.ContextSize);
+        Assert.Equal("Unknown", info.Quantization);
+        Assert.Equal("Unknown", info.TotalParams);
+    }
 }
