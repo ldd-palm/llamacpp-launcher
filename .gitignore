@@ -1,1 +1,4 @@
 .superpowers/
+**/bin/
+**/obj/
+src/**/publish/
