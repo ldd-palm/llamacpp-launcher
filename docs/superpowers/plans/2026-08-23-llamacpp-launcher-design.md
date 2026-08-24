@@ -379,6 +379,7 @@ Expected: build error, `ConfigService` / `ConfigLoadException` do not exist.
 
 ```csharp
 // src/LlamaCppLauncher/Config/ConfigService.cs
+using System.IO;
 using System.Text.Json;
 
 namespace LlamaCppLauncher.Config;
@@ -431,6 +432,8 @@ public sealed class ConfigService
     }
 }
 ```
+
+Note for this file and every later production file (not test file) in `src/LlamaCppLauncher` that uses `File`/`Directory`/`Path`/`Stream`: this project has `UseWPF` and `UseWindowsForms` both enabled, which changes the SDK's implicit-usings set to `System`, `System.Collections.Generic`, `System.Drawing`, `System.Linq`, `System.Threading`, `System.Threading.Tasks`, `System.Windows.Forms` — **`System.IO` is not in that list**, unlike a plain library/test project. An explicit `using System.IO;` (as added above) is required wherever this project's code uses those types; the test project doesn't have this problem since it isn't a WPF/WinForms project. Later task code blocks in this plan already include `using System.IO;` where needed for this same reason.
 
 - [ ] **Step 4: Run tests to verify they pass**
 
@@ -543,6 +546,7 @@ Expected: build error, `ModelDiscoveryService` does not exist.
 
 ```csharp
 // src/LlamaCppLauncher/Discovery/ModelDiscoveryService.cs
+using System.IO;
 using LlamaCppLauncher.Config;
 
 namespace LlamaCppLauncher.Discovery;
@@ -708,6 +712,7 @@ Expected: build error, `LlamaServerArgumentBuilder` does not exist.
 
 ```csharp
 // src/LlamaCppLauncher/Server/LlamaServerArgumentBuilder.cs
+using System.IO;
 using LlamaCppLauncher.Config;
 
 namespace LlamaCppLauncher.Server;
@@ -1144,6 +1149,7 @@ public sealed class ValidationResult
 
 ```csharp
 // src/LlamaCppLauncher/Validation/ValidationService.cs
+using System.IO;
 using LlamaCppLauncher.Config;
 using LlamaCppLauncher.Discovery;
 
@@ -1363,6 +1369,7 @@ public static class ParamFormatter
 
 ```csharp
 // src/LlamaCppLauncher/Server/LlamaServerApiClient.cs
+using System.Net.Http;
 using System.Text.Json;
 
 namespace LlamaCppLauncher.Server;
@@ -2077,6 +2084,7 @@ Expected: build error, `LlamaServerProcessManager` does not exist.
 ```csharp
 // src/LlamaCppLauncher/Server/LlamaServerProcessManager.cs
 using System.Diagnostics;
+using System.IO;
 using LlamaCppLauncher.Config;
 
 namespace LlamaCppLauncher.Server;
@@ -2322,6 +2330,7 @@ Expected: build error, `GeneralSettingsViewModel` does not exist.
 
 ```csharp
 // src/LlamaCppLauncher/Settings/GeneralSettingsViewModel.cs
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using LlamaCppLauncher.Config;
 using LlamaCppLauncher.Discovery;
@@ -3025,6 +3034,7 @@ Per SPEC.md §6, starting a model must confirm the server actually bound the por
 
 ```csharp
 // src/LlamaCppLauncher/Tray/TrayController.cs
+using System.IO;
 using LlamaCppLauncher.About;
 using LlamaCppLauncher.Config;
 using LlamaCppLauncher.Server;
