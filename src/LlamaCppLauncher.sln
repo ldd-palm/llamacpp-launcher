@@ -3,9 +3,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31919.166
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LlamaCppLauncher", "LlamaCppLauncher\LlamaCppLauncher.csproj", "{5F5C8C7E-7B3D-4C5E-8B1A-2D4E6F8A0B1C}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LlamaCppLauncher", "LlamaCppLauncher\LlamaCppLauncher.csproj", "{ECE3E4D0-FBF3-4D7E-8F35-8A8F3796BA0F}"
 EndProject
-Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LlamaCppLauncher.Tests", "LlamaCppLauncher.Tests\LlamaCppLauncher.Tests.csproj", "{6F7D9E8F-8C4E-5D6F-9C2B-3E5F7G9B1C2D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "LlamaCppLauncher.Tests", "LlamaCppLauncher.Tests\LlamaCppLauncher.Tests.csproj", "{39A468AD-ED6E-4AC6-9BAA-72307E846A46}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -13,13 +13,13 @@ Global
 		Release|Any CPU = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
-		{5F5C8C7E-7B3D-4C5E-8B1A-2D4E6F8A0B1C}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{5F5C8C7E-7B3D-4C5E-8B1A-2D4E6F8A0B1C}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{5F5C8C7E-7B3D-4C5E-8B1A-2D4E6F8A0B1C}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{5F5C8C7E-7B3D-4C5E-8B1A-2D4E6F8A0B1C}.Release|Any CPU.Build.0 = Release|Any CPU
-		{6F7D9E8F-8C4E-5D6F-9C2B-3E5F7G9B1C2D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{6F7D9E8F-8C4E-5D6F-9C2B-3E5F7G9B1C2D}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{6F7D9E8F-8C4E-5D6F-9C2B-3E5F7G9B1C2D}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{6F7D9E8F-8C4E-5D6F-9C2B-3E5F7G9B1C2D}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ECE3E4D0-FBF3-4D7E-8F35-8A8F3796BA0F}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ECE3E4D0-FBF3-4D7E-8F35-8A8F3796BA0F}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ECE3E4D0-FBF3-4D7E-8F35-8A8F3796BA0F}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ECE3E4D0-FBF3-4D7E-8F35-8A8F3796BA0F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{39A468AD-ED6E-4AC6-9BAA-72307E846A46}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{39A468AD-ED6E-4AC6-9BAA-72307E846A46}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{39A468AD-ED6E-4AC6-9BAA-72307E846A46}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{39A468AD-ED6E-4AC6-9BAA-72307E846A46}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

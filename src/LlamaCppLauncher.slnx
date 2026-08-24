@@ -1,4 +1,0 @@
-<Solution>
-  <Project Path="LlamaCppLauncher.Tests/LlamaCppLauncher.Tests.csproj" />
-  <Project Path="LlamaCppLauncher/LlamaCppLauncher.csproj" />
-</Solution>
