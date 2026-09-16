@@ -24,16 +24,29 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
     private bool _startWithWindows;
 
     [ObservableProperty]
-    private string? _executablePathError;
+    private string _theme = "Light";
+
+    [ObservableProperty]
+    private string? _executablePathStatus;
+
+    [ObservableProperty]
+    private bool _executablePathHasError;
 
     [ObservableProperty]
     private string? _modelsDirectoryStatus;
+
+    [ObservableProperty]
+    private bool _modelsDirectoryHasError;
 
     [ObservableProperty]
     private string? _portStatusText;
 
     [ObservableProperty]
     private bool _portHasError;
+
+    /// Raised whenever Theme changes (including from FromConfig's initial assignment), so the
+    /// composition root can apply it live without this ViewModel touching any WPF-UI theming API.
+    public event EventHandler<string>? ThemeChanged;
 
     public GeneralSettingsViewModel(IPortChecker portChecker)
     {
@@ -47,7 +60,8 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
             ExecutablePath = config.ExecutablePath,
             ModelsDirectory = config.ModelsDirectory,
             Port = config.Port,
-            StartWithWindows = config.StartWithWindows
+            StartWithWindows = config.StartWithWindows,
+            Theme = string.IsNullOrWhiteSpace(config.Theme) ? "Light" : config.Theme
         };
         viewModel.RevalidateAll();
         return viewModel;
@@ -56,6 +70,7 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
     partial void OnExecutablePathChanged(string value) => RevalidateExecutablePath();
     partial void OnModelsDirectoryChanged(string value) => RevalidateModelsDirectory();
     partial void OnPortChanged(int value) => RevalidatePort();
+    partial void OnThemeChanged(string value) => ThemeChanged?.Invoke(this, value);
 
     public void RevalidateAll()
     {
@@ -66,7 +81,9 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
 
     private void RevalidateExecutablePath()
     {
-        ExecutablePathError = File.Exists(ExecutablePath) ? null : "File not found.";
+        bool found = File.Exists(ExecutablePath);
+        ExecutablePathHasError = !found;
+        ExecutablePathStatus = found ? "llama-server.exe found." : "llama-server.exe not found at this location.";
     }
 
     private void RevalidateModelsDirectory()
@@ -74,10 +91,12 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
         if (!Directory.Exists(ModelsDirectory))
         {
             ModelsDirectoryStatus = "Directory not found.";
+            ModelsDirectoryHasError = true;
             return;
         }
 
         int count = ModelDiscoveryService.DiscoverModelFiles(ModelsDirectory).Count;
+        ModelsDirectoryHasError = count == 0;
         ModelsDirectoryStatus = count == 0
             ? "No .gguf files found."
             : $"Found {count} model{(count == 1 ? "" : "s")}.";
@@ -109,5 +128,6 @@ public sealed partial class GeneralSettingsViewModel : ObservableObject
         config.ModelsDirectory = ModelsDirectory;
         config.Port = Port;
         config.StartWithWindows = StartWithWindows;
+        config.Theme = Theme;
     }
 }

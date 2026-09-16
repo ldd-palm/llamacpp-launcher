@@ -20,10 +20,10 @@ UI language: **English** throughout (menu items, window text, tooltips, notifica
   files.
 - **Single instance**: Enforced via a named Mutex. A second launch activates/no-ops
   against the existing instance instead of starting a duplicate.
-- **Config file**: JSON at `%LOCALAPPDATA%\LlamaCppLauncher\config.json`. Read
-  automatically on launcher startup. Written only when the user clicks Save in Settings.
-- **Logs**: `%LOCALAPPDATA%\LlamaCppLauncher\logs\llama-server.out.log` and
-  `llama-server.err.log`.
+- **Config file**: JSON at `config.json`, next to the launcher executable (portable —
+  travels with the exe rather than living under `%LOCALAPPDATA%`). Read automatically
+  on launcher startup. Written only when the user clicks Save in Settings.
+- **Logs**: `logs\llama-server.out.log` and `llama-server.err.log`, also next to the exe.
 - **Autostart**: Written to `HKEY_CURRENT_USER\Software\Microsoft\Windows\CurrentVersion\Run`
   (user-scope, no admin rights required), pointing to the launcher executable.
 - **Model discovery**: Non-recursive scan of the configured Models directory for `*.gguf`

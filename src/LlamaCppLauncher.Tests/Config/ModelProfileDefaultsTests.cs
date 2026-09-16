@@ -25,6 +25,6 @@ public class ModelProfileDefaultsTests
         Assert.Equal(2048, profile.BatchSize);
         Assert.False(profile.FlashAttention);
         Assert.False(profile.IsDefault);
-        Assert.Equal(string.Empty, profile.ExtraArguments);
+        Assert.Equal(string.Empty, profile.CommandLine);
     }
 }

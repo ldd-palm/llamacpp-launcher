@@ -11,13 +11,15 @@ using LlamaCppLauncher.Settings;
 using LlamaCppLauncher.Startup;
 using LlamaCppLauncher.Tray;
 using LlamaCppLauncher.Validation;
+using Wpf.Ui.Appearance;
 
 namespace LlamaCppLauncher;
 
 public partial class App : System.Windows.Application
 {
-    private static readonly string AppDataDirectory =
-        Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "LlamaCppLauncher");
+    // Portable layout: config.json, logs\, and the exe itself all live together in whatever folder
+    // the app was launched from, instead of %LOCALAPPDATA%.
+    private static readonly string AppDirectory = AppContext.BaseDirectory;
 
     private SingleInstanceService? _singleInstance;
     private TrayController? _trayController;
@@ -38,9 +40,8 @@ public partial class App : System.Windows.Application
             return;
         }
 
-        Directory.CreateDirectory(AppDataDirectory);
-        string configPath = Path.Combine(AppDataDirectory, "config.json");
-        string logDirectory = Path.Combine(AppDataDirectory, "logs");
+        string configPath = Path.Combine(AppDirectory, "config.json");
+        string logDirectory = Path.Combine(AppDirectory, "logs");
         Directory.CreateDirectory(logDirectory);
 
         _configService = new ConfigService(configPath);
@@ -56,7 +57,7 @@ public partial class App : System.Windows.Application
 
         _trayController = new TrayController(_configService, validationService, portProbe, _processManager, apiClient);
         _trayController.SettingsRequested += (_, _) => OpenSettings();
-        _trayController.AboutRequested += (_, _) => OpenAbout();
+        _trayController.AboutRequested += async (_, _) => await OpenAboutAsync();
         _trayController.ExitRequested += (_, _) => ExitApplication();
 
         var bootstrapper = new LauncherBootstrapper(_configService, validationService);
@@ -90,6 +91,8 @@ public partial class App : System.Windows.Application
         }
 
         AppConfig config = _trayController!.CurrentConfig;
+        ApplyTheme(config.Theme);
+
         IReadOnlyList<string> discovered = ModelDiscoveryService.DiscoverModelFiles(config.ModelsDirectory);
         List<ModelProfile> mergedModels = ModelDiscoveryService.MergeWithConfiguredModels(discovered, config.Models);
 
@@ -98,6 +101,11 @@ public partial class App : System.Windows.Application
         var modelsViewModel = new ModelsSettingsViewModel(mergedModels);
         var settingsViewModel = new SettingsViewModel(
             config, generalViewModel, modelsViewModel, _configService!, _autoStartService!, _trayController!.RunningModelFileName);
+
+        settingsViewModel.StartModelRequested += async (_, fileName) => await StartModelFromSettingsAsync(fileName);
+        settingsViewModel.StopRequested += async (_, _) => await StopModelFromSettingsAsync();
+        settingsViewModel.StatusRequested += async (_, _) => await OpenAboutAsync();
+        generalViewModel.ThemeChanged += (_, theme) => ApplyTheme(theme);
 
         _settingsWindow = new SettingsWindow(settingsViewModel);
         _settingsWindow.Closed += (_, _) =>
@@ -108,15 +116,49 @@ public partial class App : System.Windows.Application
         _settingsWindow.Show();
     }
 
-    private void OpenAbout()
+    private async Task StartModelFromSettingsAsync(string fileName)
     {
-        var window = new AboutWindow(_trayController!.BuildAboutViewModel());
+        bool started = await _trayController!.SwitchToAsync(fileName);
+        if (started)
+        {
+            await OpenAboutAsync();
+        }
+    }
+
+    private async Task OpenAboutAsync()
+    {
+        ApplyTheme(_trayController!.CurrentConfig.Theme);
+        var window = new AboutWindow(await _trayController.BuildAboutViewModelAsync());
         window.Show();
+    }
+
+    private static void ApplyTheme(string? theme)
+    {
+        ApplicationTheme appTheme = string.Equals(theme, "Dark", StringComparison.OrdinalIgnoreCase)
+            ? ApplicationTheme.Dark
+            : ApplicationTheme.Light;
+        ApplicationThemeManager.Apply(appTheme);
+    }
+
+    private async Task StopModelFromSettingsAsync()
+    {
+        _trayController!.Stop();
+        await OpenAboutAsync();
     }
 
     private void ExitApplication()
     {
-        _processManager?.Stop();
+        // Always attempt to unload the running model before anything else, and keep going through
+        // the rest of teardown even if that attempt throws — a failed kill shouldn't leave the
+        // launcher itself hung or orphan the mutex/tray icon.
+        try
+        {
+            _processManager?.Stop();
+        }
+        catch (Exception)
+        {
+        }
+
         _trayController?.Dispose();
         _singleInstance?.Dispose();
         _httpClient?.Dispose();

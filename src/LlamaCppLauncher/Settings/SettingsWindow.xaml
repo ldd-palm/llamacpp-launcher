@@ -3,10 +3,11 @@
   x:Class="LlamaCppLauncher.Settings.SettingsWindow"
   xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
   xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+  xmlns:conv="clr-namespace:LlamaCppLauncher.Converters"
   xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
   Title="Settings — llama.cpp Launcher"
   Width="640"
-  Height="560"
+  Height="620"
   ExtendsContentIntoTitleBar="True"
   WindowBackdropType="Mica"
   WindowCornerPreference="Round"
@@ -14,88 +15,209 @@
   >
   <Window.Resources>
     <BooleanToVisibilityConverter x:Key="BoolToVis" />
+    <conv:InverseBooleanToVisibilityConverter x:Key="InverseBoolToVis" />
   </Window.Resources>
   <Grid>
     <Grid.RowDefinitions>
       <RowDefinition Height="Auto" />
+      <RowDefinition Height="Auto" />
       <RowDefinition Height="*" />
     </Grid.RowDefinitions>
 
-    <ui:TitleBar Grid.Row="0" Title="Settings" />
+    <ui:TitleBar Grid.Row="0" Title="Settings" FontSize="16" FontWeight="SemiBold">
+      <ui:TitleBar.Icon>
+        <ui:ImageIcon Source="pack://application:,,,/Assets/cpp_logo_color.ico" />
+      </ui:TitleBar.Icon>
+    </ui:TitleBar>
 
-    <Grid Grid.Row="1">
-      <Grid.ColumnDefinitions>
-        <ColumnDefinition Width="180" />
-        <ColumnDefinition Width="*" />
-      </Grid.ColumnDefinitions>
+    <StackPanel Grid.Row="1" Margin="16,16,16,0" Orientation="Horizontal">
+      <Button Content="General" Command="{Binding ShowGeneralPageCommand}">
+        <Button.Style>
+          <Style TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Padding" Value="4,6" />
+            <Setter Property="Margin" Value="0,0,24,0" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                  <StackPanel>
+                    <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" />
+                    <Border x:Name="Underline" Height="2" Margin="0,4,0,0" Background="Transparent" CornerRadius="1" />
+                  </StackPanel>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Trigger>
+                    <DataTrigger Binding="{Binding IsGeneralPageSelected}" Value="True">
+                      <Setter TargetName="Underline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    </DataTrigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsGeneralPageSelected}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+      </Button>
+      <Button Content="Models" Command="{Binding ShowModelsPageCommand}">
+        <Button.Style>
+          <Style TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Padding" Value="4,6" />
+            <Setter Property="Template">
+              <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                  <StackPanel>
+                    <ContentPresenter Margin="{TemplateBinding Padding}" HorizontalAlignment="Center" />
+                    <Border x:Name="Underline" Height="2" Margin="0,4,0,0" Background="Transparent" CornerRadius="1" />
+                  </StackPanel>
+                  <ControlTemplate.Triggers>
+                    <Trigger Property="IsMouseOver" Value="True">
+                      <Setter Property="TextElement.Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+                    </Trigger>
+                    <DataTrigger Binding="{Binding IsModelsPageSelected}" Value="True">
+                      <Setter TargetName="Underline" Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    </DataTrigger>
+                  </ControlTemplate.Triggers>
+                </ControlTemplate>
+              </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding IsModelsPageSelected}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </Button.Style>
+      </Button>
+    </StackPanel>
+    <Border Grid.Row="1" Height="1" Margin="16,44,16,0" VerticalAlignment="Bottom" Background="{DynamicResource DividerStrokeColorDefaultBrush}" />
 
-      <StackPanel Grid.Column="0" Background="{DynamicResource ControlFillColorDefaultBrush}">
-        <ui:Button Margin="8" HorizontalContentAlignment="Left" Content="General" Command="{Binding ShowGeneralPageCommand}" />
-        <ui:Button Margin="8,0,8,8" HorizontalContentAlignment="Left" Content="Models" Command="{Binding ShowModelsPageCommand}" />
+    <StackPanel Grid.Row="2" Margin="16" Visibility="{Binding IsGeneralPageSelected, Converter={StaticResource BoolToVis}}">
+      <TextBlock Margin="0,0,0,4" Text="llama.cpp executable path" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:TextBox Grid.Column="0" Text="{Binding General.ExecutablePath, UpdateSourceTrigger=PropertyChanged}" />
+        <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Browse…" Command="{Binding BrowseExecutableCommand}" />
+      </Grid>
+      <TextBlock Text="{Binding General.ExecutablePathStatus}">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding General.ExecutablePathHasError}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+
+      <TextBlock Margin="0,16,0,4" Text="Models directory" />
+      <Grid>
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="*" />
+          <ColumnDefinition Width="Auto" />
+        </Grid.ColumnDefinitions>
+        <ui:TextBox Grid.Column="0" Text="{Binding General.ModelsDirectory, UpdateSourceTrigger=PropertyChanged}" />
+        <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Browse…" Command="{Binding BrowseModelsDirectoryCommand}" />
+      </Grid>
+      <TextBlock Text="{Binding General.ModelsDirectoryStatus}">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SystemFillColorSuccessBrush}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding General.ModelsDirectoryHasError}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+
+      <TextBlock Margin="0,16,0,4" Text="Port" />
+      <ui:NumberBox Width="220" HorizontalAlignment="Left" Value="{Binding General.Port, UpdateSourceTrigger=PropertyChanged}" />
+      <TextBlock Text="{Binding General.PortStatusText}">
+        <TextBlock.Style>
+          <Style TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
+            <Style.Triggers>
+              <DataTrigger Binding="{Binding General.PortHasError}" Value="True">
+                <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
+              </DataTrigger>
+            </Style.Triggers>
+          </Style>
+        </TextBlock.Style>
+      </TextBlock>
+
+      <CheckBox Margin="0,16,0,0" Content="Start with Windows" IsChecked="{Binding General.StartWithWindows}" />
+
+      <TextBlock Margin="0,16,0,4" Text="Theme" />
+      <ComboBox Width="220" HorizontalAlignment="Left" SelectedValuePath="Content" SelectedValue="{Binding General.Theme}">
+        <ComboBoxItem Content="Light" />
+        <ComboBoxItem Content="Dark" />
+      </ComboBox>
+
+      <StackPanel Margin="0,24,0,0" Orientation="Horizontal">
+        <ui:Button Appearance="Primary" Content="Save" Command="{Binding SaveCommand}" />
+        <ui:Button Margin="8,0,0,0" Appearance="Info" Content="Status" Command="{Binding StatusCommand}" />
       </StackPanel>
+      <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="{Binding SaveNotice}" />
+    </StackPanel>
 
-      <StackPanel Grid.Column="1" Margin="16" Visibility="{Binding IsGeneralPageSelected, Converter={StaticResource BoolToVis}}">
-        <TextBlock Margin="0,0,0,4" Text="llama.cpp executable path" />
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBox Grid.Column="0" Text="{Binding General.ExecutablePath, UpdateSourceTrigger=PropertyChanged}" />
-          <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Browse…" Command="{Binding BrowseExecutableCommand}" />
-        </Grid>
-        <TextBlock Foreground="{DynamicResource SystemFillColorCriticalBrush}" Text="{Binding General.ExecutablePathError}" />
+    <Grid Grid.Row="2" Margin="16" Visibility="{Binding IsModelsPageSelected, Converter={StaticResource BoolToVis}}">
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="*" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
 
-        <TextBlock Margin="0,16,0,4" Text="Models directory" />
-        <Grid>
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="Auto" />
-          </Grid.ColumnDefinitions>
-          <ui:TextBox Grid.Column="0" Text="{Binding General.ModelsDirectory, UpdateSourceTrigger=PropertyChanged}" />
-          <ui:Button Grid.Column="1" Margin="8,0,0,0" Content="Browse…" Command="{Binding BrowseModelsDirectoryCommand}" />
-        </Grid>
-        <TextBlock Text="{Binding General.ModelsDirectoryStatus}" />
+      <TextBlock Grid.Row="0" Margin="0,0,0,4" Text="Local models (scanned from the Models directory in General)" />
 
-        <TextBlock Margin="0,16,0,4" Text="Port" />
-        <ui:NumberBox Width="120" HorizontalAlignment="Left" Value="{Binding General.Port, UpdateSourceTrigger=PropertyChanged}" />
-        <TextBlock Text="{Binding General.PortStatusText}">
-          <TextBlock.Style>
-            <Style TargetType="TextBlock">
-              <Setter Property="Foreground" Value="{DynamicResource TextFillColorPrimaryBrush}" />
-              <Style.Triggers>
-                <DataTrigger Binding="{Binding General.PortHasError}" Value="True">
-                  <Setter Property="Foreground" Value="{DynamicResource SystemFillColorCriticalBrush}" />
-                </DataTrigger>
-              </Style.Triggers>
-            </Style>
-          </TextBlock.Style>
-        </TextBlock>
+      <!-- Shows the .gguf file name, not the editable Alias — the file name never changes, so this
+           entry can't appear to rename itself while the user edits Alias below. A star marks whichever
+           model is currently the Default. -->
+      <ComboBox Grid.Row="1" Margin="0,0,0,16" ItemsSource="{Binding Models.Models}" SelectedItem="{Binding Models.SelectedModel}" Visibility="{Binding Models.HasNoModels, Converter={StaticResource InverseBoolToVis}}">
+        <ComboBox.ItemTemplate>
+          <DataTemplate>
+            <StackPanel Orientation="Horizontal">
+              <TextBlock Text="{Binding FileName}" />
+              <TextBlock Margin="4,0,0,0" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="★" Visibility="{Binding IsDefault, Converter={StaticResource BoolToVis}}" />
+            </StackPanel>
+          </DataTemplate>
+        </ComboBox.ItemTemplate>
+      </ComboBox>
 
-        <CheckBox Margin="0,16,0,0" Content="Start with Windows" IsChecked="{Binding General.StartWithWindows}" />
+      <TextBlock Grid.Row="1" Margin="0,0,0,16" TextWrapping="Wrap" Foreground="{DynamicResource SystemFillColorCautionBrush}" Text="No models found. Go to General and set a valid llama.cpp executable path and a Models directory that contains .gguf files, or download some models first." Visibility="{Binding Models.HasNoModels, Converter={StaticResource BoolToVis}}" />
 
-        <ui:Button Margin="0,24,0,0" HorizontalAlignment="Left" Appearance="Primary" Content="Save" Command="{Binding SaveCommand}" />
-        <TextBlock Margin="0,8,0,0" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="{Binding SaveNotice}" />
-      </StackPanel>
-
-      <Grid Grid.Column="1" Margin="16" Visibility="{Binding IsModelsPageSelected, Converter={StaticResource BoolToVis}}">
-        <Grid.RowDefinitions>
-          <RowDefinition Height="Auto" />
-          <RowDefinition Height="*" />
-          <RowDefinition Height="Auto" />
-        </Grid.RowDefinitions>
-
-        <ComboBox Grid.Row="0" Margin="0,0,0,16" DisplayMemberPath="Alias" ItemsSource="{Binding Models.Models}" SelectedItem="{Binding Models.SelectedModel}" />
-
-        <StackPanel Grid.Row="1">
+      <ScrollViewer Grid.Row="2" VerticalScrollBarVisibility="Auto" Visibility="{Binding Models.HasNoModels, Converter={StaticResource InverseBoolToVis}}">
+        <StackPanel Margin="0,0,12,0">
           <TextBlock Text="Alias" />
           <ui:TextBox Margin="0,0,0,12" Text="{Binding Models.SelectedModel.Alias, UpdateSourceTrigger=PropertyChanged}" />
 
           <TextBlock Text="CTX_SIZE" />
-          <ui:NumberBox Margin="0,0,0,12" Value="{Binding Models.SelectedModel.CtxSize, UpdateSourceTrigger=PropertyChanged}" />
+          <ui:NumberBox Margin="0,0,0,12" SpinButtonPlacementMode="Hidden" Value="{Binding Models.SelectedModel.CtxSize, UpdateSourceTrigger=PropertyChanged}" />
 
           <TextBlock Text="N_GPU_LAYERS" />
-          <ui:NumberBox Margin="0,0,0,12" Value="{Binding Models.SelectedModel.NGpuLayers, UpdateSourceTrigger=PropertyChanged}" />
+          <ui:NumberBox Margin="0,0,0,12" SpinButtonPlacementMode="Hidden" Value="{Binding Models.SelectedModel.NGpuLayers, UpdateSourceTrigger=PropertyChanged}" />
 
           <TextBlock Text="KV cache quantization (-ctk/-ctv)" />
           <ComboBox Margin="0,0,0,12" SelectedValuePath="Content" SelectedValue="{Binding Models.SelectedModel.KvCacheType}">
@@ -104,24 +226,41 @@
             <ComboBoxItem Content="q4_0" />
           </ComboBox>
 
-          <TextBlock Text="Threads (--threads)" />
-          <ui:TextBox Margin="0,0,0,12" PlaceholderText="Auto" Text="{Binding Models.SelectedModel.Threads, UpdateSourceTrigger=PropertyChanged}" />
-
           <TextBlock Text="Batch size (-b)" />
-          <ui:NumberBox Margin="0,0,0,12" Value="{Binding Models.SelectedModel.BatchSize, UpdateSourceTrigger=PropertyChanged}" />
+          <ui:NumberBox Margin="0,0,0,12" SpinButtonPlacementMode="Hidden" Value="{Binding Models.SelectedModel.BatchSize, UpdateSourceTrigger=PropertyChanged}" />
 
-          <CheckBox Margin="0,0,0,12" Content="Enable Flash Attention (--flash-attn)" IsChecked="{Binding Models.SelectedModel.FlashAttention}" />
+          <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
+            <CheckBox Content="Enable Flash Attention (--flash-attn)" IsChecked="{Binding Models.SelectedModel.FlashAttention}" />
+            <TextBlock Margin="12,0,0,0" VerticalAlignment="Center">
+              <Hyperlink Click="OnParameterReferenceClick">Parameter reference</Hyperlink>
+            </TextBlock>
+          </StackPanel>
 
           <TextBlock Margin="0,0,0,4" FontWeight="SemiBold" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="This is the Default Model" Visibility="{Binding Models.SelectedModel.IsDefault, Converter={StaticResource BoolToVis}}" />
-          <ui:Button Margin="0,0,0,12" HorizontalAlignment="Left" Content="Set as Default Model" Command="{Binding Models.SetSelectedModelAsDefaultCommand}" />
+          <StackPanel Margin="0,0,0,12" Orientation="Horizontal">
+            <ui:Button Content="Set as Default Model" Command="{Binding Models.SetSelectedModelAsDefaultCommand}" />
+            <ui:Button Margin="8,0,0,0" Content="Generate" Command="{Binding GenerateCommandLineCommand}" />
+          </StackPanel>
 
-          <TextBlock Text="Extra command-line arguments" />
-          <ui:TextBox Text="{Binding Models.SelectedModel.ExtraArguments, UpdateSourceTrigger=PropertyChanged}" />
+          <TextBlock Text="Command line" />
+          <ui:TextBox
+            AcceptsReturn="True"
+            FontFamily="Consolas"
+            Height="90"
+            Text="{Binding Models.SelectedModel.CommandLine, UpdateSourceTrigger=PropertyChanged}"
+            TextWrapping="Wrap"
+            VerticalScrollBarVisibility="Auto"
+            />
+          <TextBlock Margin="0,4,0,0" FontSize="11" Foreground="{DynamicResource TextFillColorSecondaryBrush}" TextWrapping="Wrap" Text="Click Generate to assemble a command line from the fields above, then edit freely — this is the exact command used to start this model. Leave empty to fall back to the fields above automatically." />
         </StackPanel>
+      </ScrollViewer>
 
-        <ui:Button Grid.Row="2" Margin="0,16,0,0" HorizontalAlignment="Left" Appearance="Primary" Content="Save this model's configuration" Command="{Binding SaveCommand}" />
-        <TextBlock Grid.Row="2" Margin="0,0,0,40" HorizontalAlignment="Right" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="{Binding SaveNotice}" />
-      </Grid>
+      <StackPanel Grid.Row="3" Margin="0,16,0,0" Orientation="Horizontal" Visibility="{Binding Models.HasNoModels, Converter={StaticResource InverseBoolToVis}}">
+        <ui:Button Appearance="Primary" Content="Save" Command="{Binding SaveCommand}" />
+        <ui:Button Margin="8,0,0,0" Appearance="Success" Content="Start" Command="{Binding StartCommand}" />
+        <ui:Button Margin="8,0,0,0" Appearance="Danger" Content="Stop" Command="{Binding StopCommand}" />
+      </StackPanel>
+      <TextBlock Grid.Row="3" Margin="0,0,0,40" HorizontalAlignment="Right" Foreground="{DynamicResource SystemFillColorSuccessBrush}" Text="{Binding SaveNotice}" />
     </Grid>
   </Grid>
 </ui:FluentWindow>

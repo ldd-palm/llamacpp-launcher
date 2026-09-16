@@ -1,7 +1,10 @@
+using System.ComponentModel;
+using System.IO;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using LlamaCppLauncher.AutoStart;
 using LlamaCppLauncher.Config;
+using LlamaCppLauncher.Server;
 
 namespace LlamaCppLauncher.Settings;
 
@@ -24,6 +27,15 @@ public sealed partial class SettingsViewModel : ObservableObject
     public GeneralSettingsViewModel General { get; }
     public ModelsSettingsViewModel Models { get; }
 
+    /// Raised when the user clicks Start on the Models page, carrying the selected model's file name.
+    public event EventHandler<string>? StartModelRequested;
+
+    /// Raised when the user clicks Stop on the Models page.
+    public event EventHandler? StopRequested;
+
+    /// Raised when the user clicks Status on the General page.
+    public event EventHandler? StatusRequested;
+
     public SettingsViewModel(
         AppConfig config,
         GeneralSettingsViewModel general,
@@ -38,6 +50,16 @@ public sealed partial class SettingsViewModel : ObservableObject
         _configService = configService;
         _autoStartService = autoStartService;
         _runningModelFileName = runningModelFileName;
+
+        General.PropertyChanged += OnGeneralPropertyChanged;
+    }
+
+    private void OnGeneralPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(GeneralSettingsViewModel.ModelsDirectory))
+        {
+            Models.RefreshFromDirectory(General.ModelsDirectory);
+        }
     }
 
     [RelayCommand]
@@ -62,16 +84,57 @@ public sealed partial class SettingsViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private void Start()
+    {
+        if (Models.SelectedModel is null)
+        {
+            return;
+        }
+
+        Save();
+        StartModelRequested?.Invoke(this, Models.SelectedModel.FileName);
+    }
+
+    [RelayCommand]
+    private void Stop()
+    {
+        StopRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void Status()
+    {
+        StatusRequested?.Invoke(this, EventArgs.Empty);
+    }
+
+    [RelayCommand]
+    private void GenerateCommandLine()
+    {
+        if (Models.SelectedModel is null)
+        {
+            return;
+        }
+
+        var snapshot = new AppConfig
+        {
+            Host = _config.Host,
+            Port = General.Port,
+            ModelsDirectory = General.ModelsDirectory
+        };
+        Models.SelectedModel.CommandLine = LlamaServerArgumentBuilder.GenerateCommandLine(snapshot, Models.SelectedModel);
+    }
+
+    [RelayCommand]
     private void BrowseExecutable()
     {
-        var dialog = new Microsoft.Win32.OpenFileDialog
+        string? currentDirectory = Path.GetDirectoryName(General.ExecutablePath);
+        var dialog = new Microsoft.Win32.OpenFolderDialog
         {
-            Filter = "llama-server executable (*.exe)|*.exe",
-            FileName = General.ExecutablePath
+            FolderName = !string.IsNullOrEmpty(currentDirectory) && Directory.Exists(currentDirectory) ? currentDirectory : string.Empty
         };
         if (dialog.ShowDialog() == true)
         {
-            General.ExecutablePath = dialog.FileName;
+            General.ExecutablePath = Path.Combine(dialog.FolderName, "llama-server.exe");
         }
     }
 

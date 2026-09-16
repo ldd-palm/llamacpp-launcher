@@ -116,4 +116,139 @@ public class SettingsViewModelTests : IDisposable
 
         Assert.Null(viewModel.SaveNotice);
     }
+
+    [Fact]
+    public void StartCommand_SavesConfig_AndRaisesStartModelRequested_WithSelectedModelFileName()
+    {
+        var models = new ModelsSettingsViewModel(new[] { ModelProfile.CreateDefault("a.gguf") });
+        var viewModel = new SettingsViewModel(
+            new AppConfig(),
+            new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)) { ExecutablePath = "exe.exe", ModelsDirectory = "models" },
+            models,
+            new ConfigService(_configPath),
+            new AutoStartService(new InMemoryRunKeyStore()));
+
+        string? requestedFileName = null;
+        viewModel.StartModelRequested += (_, fileName) => requestedFileName = fileName;
+
+        viewModel.StartCommand.Execute(null);
+
+        Assert.Equal("a.gguf", requestedFileName);
+        Assert.NotNull(new ConfigService(_configPath).Load());
+    }
+
+    [Fact]
+    public void StartCommand_DoesNothing_WhenNoModelIsSelected()
+    {
+        var models = new ModelsSettingsViewModel(Array.Empty<ModelProfile>());
+        var viewModel = new SettingsViewModel(
+            new AppConfig(),
+            new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)),
+            models,
+            new ConfigService(_configPath),
+            new AutoStartService(new InMemoryRunKeyStore()));
+
+        bool raised = false;
+        viewModel.StartModelRequested += (_, _) => raised = true;
+
+        viewModel.StartCommand.Execute(null);
+
+        Assert.False(raised);
+        Assert.Null(new ConfigService(_configPath).Load());
+    }
+
+    [Fact]
+    public void StopCommand_RaisesStopRequested()
+    {
+        var viewModel = new SettingsViewModel(
+            new AppConfig(),
+            new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)),
+            new ModelsSettingsViewModel(Array.Empty<ModelProfile>()),
+            new ConfigService(_configPath),
+            new AutoStartService(new InMemoryRunKeyStore()));
+
+        bool raised = false;
+        viewModel.StopRequested += (_, _) => raised = true;
+
+        viewModel.StopCommand.Execute(null);
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void StatusCommand_RaisesStatusRequested()
+    {
+        var viewModel = new SettingsViewModel(
+            new AppConfig(),
+            new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)),
+            new ModelsSettingsViewModel(Array.Empty<ModelProfile>()),
+            new ConfigService(_configPath),
+            new AutoStartService(new InMemoryRunKeyStore()));
+
+        bool raised = false;
+        viewModel.StatusRequested += (_, _) => raised = true;
+
+        viewModel.StatusCommand.Execute(null);
+
+        Assert.True(raised);
+    }
+
+    [Fact]
+    public void GenerateCommandLineCommand_AssemblesCommandLine_UsingLiveGeneralFields()
+    {
+        var models = new ModelsSettingsViewModel(new[] { ModelProfile.CreateDefault("model.gguf") });
+        var general = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free))
+        {
+            ModelsDirectory = @"C:\models",
+            Port = 9090
+        };
+        var viewModel = new SettingsViewModel(
+            new AppConfig(), general, models, new ConfigService(_configPath), new AutoStartService(new InMemoryRunKeyStore()));
+
+        viewModel.GenerateCommandLineCommand.Execute(null);
+
+        Assert.Contains(@"C:\models\model.gguf", models.SelectedModel!.CommandLine);
+        Assert.Contains("--port 9090", models.SelectedModel!.CommandLine);
+    }
+
+    [Fact]
+    public void GenerateCommandLineCommand_DoesNothing_WhenNoModelIsSelected()
+    {
+        var models = new ModelsSettingsViewModel(Array.Empty<ModelProfile>());
+        var viewModel = new SettingsViewModel(
+            new AppConfig(),
+            new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)),
+            models,
+            new ConfigService(_configPath),
+            new AutoStartService(new InMemoryRunKeyStore()));
+
+        viewModel.GenerateCommandLineCommand.Execute(null);
+
+        Assert.Null(models.SelectedModel);
+    }
+
+    [Fact]
+    public void ChangingGeneralModelsDirectory_RescansModelsList()
+    {
+        string tempDir = Path.Combine(Path.GetTempPath(), "LlamaCppLauncherTests_" + Guid.NewGuid());
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(tempDir, "found.gguf"), "");
+
+            var general = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free));
+            var models = new ModelsSettingsViewModel(Array.Empty<ModelProfile>());
+            var viewModel = new SettingsViewModel(
+                new AppConfig(), general, models, new ConfigService(_configPath), new AutoStartService(new InMemoryRunKeyStore()));
+
+            general.ModelsDirectory = tempDir;
+
+            Assert.False(models.HasNoModels);
+            Assert.Contains(models.Models, m => m.FileName == "found.gguf");
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
+        }
+    }
 }

@@ -1,4 +1,7 @@
 .superpowers/
+.claude/
 **/bin/
 **/obj/
 src/**/publish/
+src/publish-fd/
+src/publish-single-fd/

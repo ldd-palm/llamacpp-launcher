@@ -36,7 +36,8 @@ public class GeneralSettingsViewModelTests : IDisposable
 
         viewModel.ExecutablePath = Path.Combine(_tempDir, "missing.exe");
 
-        Assert.Equal("File not found.", viewModel.ExecutablePathError);
+        Assert.True(viewModel.ExecutablePathHasError);
+        Assert.Equal("llama-server.exe not found at this location.", viewModel.ExecutablePathStatus);
     }
 
     [Fact]
@@ -46,7 +47,8 @@ public class GeneralSettingsViewModelTests : IDisposable
 
         viewModel.ExecutablePath = _exePath;
 
-        Assert.Null(viewModel.ExecutablePathError);
+        Assert.False(viewModel.ExecutablePathHasError);
+        Assert.Equal("llama-server.exe found.", viewModel.ExecutablePathStatus);
     }
 
     [Fact]
@@ -87,7 +89,7 @@ public class GeneralSettingsViewModelTests : IDisposable
         var viewModel = GeneralSettingsViewModel.FromConfig(config, new StubPortChecker(PortStatus.Free));
 
         Assert.Equal(_exePath, viewModel.ExecutablePath);
-        Assert.Null(viewModel.ExecutablePathError);
+        Assert.False(viewModel.ExecutablePathHasError);
         Assert.Equal("Found 1 model.", viewModel.ModelsDirectoryStatus);
         Assert.True(viewModel.StartWithWindows);
         // Port (8080) equals the ViewModel field's own compile-time default, so CommunityToolkit.Mvvm's
@@ -137,5 +139,56 @@ public class GeneralSettingsViewModelTests : IDisposable
         Assert.Equal(_modelsDir, config.ModelsDirectory);
         Assert.Equal(9090, config.Port);
         Assert.True(config.StartWithWindows);
+    }
+
+    [Fact]
+    public void Theme_DefaultsToLight()
+    {
+        var viewModel = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free));
+
+        Assert.Equal("Light", viewModel.Theme);
+    }
+
+    [Fact]
+    public void FromConfig_DefaultsThemeToLight_WhenConfigThemeIsBlank()
+    {
+        var config = new AppConfig { ExecutablePath = _exePath, ModelsDirectory = _modelsDir, Theme = "" };
+
+        var viewModel = GeneralSettingsViewModel.FromConfig(config, new StubPortChecker(PortStatus.Free));
+
+        Assert.Equal("Light", viewModel.Theme);
+    }
+
+    [Fact]
+    public void FromConfig_UsesConfiguredTheme_WhenSet()
+    {
+        var config = new AppConfig { ExecutablePath = _exePath, ModelsDirectory = _modelsDir, Theme = "Dark" };
+
+        var viewModel = GeneralSettingsViewModel.FromConfig(config, new StubPortChecker(PortStatus.Free));
+
+        Assert.Equal("Dark", viewModel.Theme);
+    }
+
+    [Fact]
+    public void ApplyTo_CopiesThemeIntoConfig()
+    {
+        var viewModel = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free)) { Theme = "Dark" };
+        var config = new AppConfig();
+
+        viewModel.ApplyTo(config);
+
+        Assert.Equal("Dark", config.Theme);
+    }
+
+    [Fact]
+    public void ThemeChanged_FiresWithNewValue_WhenThemeChanges()
+    {
+        var viewModel = new GeneralSettingsViewModel(new StubPortChecker(PortStatus.Free));
+        string? raised = null;
+        viewModel.ThemeChanged += (_, theme) => raised = theme;
+
+        viewModel.Theme = "Dark";
+
+        Assert.Equal("Dark", raised);
     }
 }

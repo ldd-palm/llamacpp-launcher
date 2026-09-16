@@ -7,6 +7,7 @@ using LlamaCppLauncher.Startup;
 using LlamaCppLauncher.Validation;
 using Drawing = System.Drawing;
 using Forms = System.Windows.Forms;
+using WpfControls = System.Windows.Controls;
 
 namespace LlamaCppLauncher.Tray;
 
@@ -22,6 +23,7 @@ public sealed class TrayController : IDisposable
     private readonly Drawing.Icon _colorIcon;
     private readonly Drawing.Icon _bwIcon;
     private readonly Forms.NotifyIcon _notifyIcon;
+    private readonly TrayContextMenuHost _menuHost = new();
 
     private AppConfig _config = new();
     private bool _isTransitioning;
@@ -55,6 +57,18 @@ public sealed class TrayController : IDisposable
             Icon = _bwIcon,
             Text = "llama.cpp Launcher — Stopped",
             Visible = true
+        };
+
+        _notifyIcon.MouseClick += async (_, e) =>
+        {
+            if (e.Button == Forms.MouseButtons.Left)
+            {
+                await ToggleServiceAsync();
+            }
+            else if (e.Button == Forms.MouseButtons.Right)
+            {
+                _menuHost.ShowMenu(BuildContextMenu(), Forms.Cursor.Position);
+            }
         };
 
         _processManager.ServerExited += (_, _) =>
@@ -113,14 +127,19 @@ public sealed class TrayController : IDisposable
                 }
                 else
                 {
-                    ModelProfile? defaultModel = _config.Models.FirstOrDefault(m => m.IsDefault);
-                    if (defaultModel is null)
+                    // Prefer the explicit Default Model; if none is set, fall back to whatever was
+                    // last running so a manual Start Service click isn't blocked just because the
+                    // user never flipped the Default toggle in Settings.
+                    ModelProfile? modelToStart = _config.Models.FirstOrDefault(m => m.IsDefault)
+                        ?? _config.Models.FirstOrDefault(m => string.Equals(m.FileName, _config.LastRunningModelFileName, StringComparison.OrdinalIgnoreCase));
+
+                    if (modelToStart is null)
                     {
                         ShowBalloon("llama.cpp Launcher", "No default model is configured. Open Settings to choose one.", isError: true);
                     }
                     else
                     {
-                        await StartServerAsync(defaultModel);
+                        await StartServerAsync(modelToStart);
                     }
                 }
             }
@@ -133,31 +152,39 @@ public sealed class TrayController : IDisposable
         RefreshMenu();
     }
 
-    public async Task SwitchToAsync(string fileName)
+    public async Task<bool> SwitchToAsync(string fileName)
     {
         if (_isTransitioning)
         {
-            return;
+            return false;
         }
 
         ModelProfile? target = _config.Models.FirstOrDefault(m =>
             string.Equals(m.FileName, fileName, StringComparison.OrdinalIgnoreCase));
         if (target is null)
         {
-            return;
+            return false;
         }
 
         _isTransitioning = true;
+        bool started;
         try
         {
             StopServer();
-            await StartServerAsync(target);
+            started = await StartServerAsync(target);
         }
         finally
         {
             _isTransitioning = false;
         }
 
+        RefreshMenu();
+        return started;
+    }
+
+    public void Stop()
+    {
+        StopServer();
         RefreshMenu();
     }
 
@@ -167,24 +194,38 @@ public sealed class TrayController : IDisposable
         RefreshMenu();
     }
 
-    public AboutViewModel BuildAboutViewModel()
+    // llama-server's TCP port can accept connections before its HTTP API is actually ready to
+    // answer /v1/models with real data (the model may still be loading) — poll for a bit instead
+    // of giving up on the first miss, especially right after a fresh start.
+    private static readonly TimeSpan ApiReadyTimeout = TimeSpan.FromSeconds(30);
+
+    public async Task<AboutViewModel> BuildAboutViewModelAsync()
     {
         if (!_processManager.IsRunning || _processManager.RunningModel is null)
         {
             return AboutViewModel.NotRunning();
         }
 
-        RunningModelInfo? info = _apiClient
-            .GetRunningModelInfoAsync(_config.Host, _config.Port)
-            .GetAwaiter()
-            .GetResult();
+        string runningFileName = _processManager.RunningModel.FileName;
+        DateTime deadline = DateTime.UtcNow + ApiReadyTimeout;
+        while (true)
+        {
+            RunningModelInfo? info = await _apiClient.GetRunningModelInfoAsync(_config.Host, _config.Port).ConfigureAwait(false);
+            if (info is not null)
+            {
+                return AboutViewModel.FromRunningModel(runningFileName, _config.Host, _config.Port, info);
+            }
 
-        return info is null
-            ? AboutViewModel.NotRunning()
-            : AboutViewModel.FromRunningModel(_processManager.RunningModel.FileName, _config.Host, _config.Port, info);
+            if (!_processManager.IsRunning || DateTime.UtcNow >= deadline)
+            {
+                return AboutViewModel.NotRunning();
+            }
+
+            await Task.Delay(500).ConfigureAwait(false);
+        }
     }
 
-    private async Task StartServerAsync(ModelProfile profile)
+    private async Task<bool> StartServerAsync(ModelProfile profile)
     {
         try
         {
@@ -193,7 +234,7 @@ public sealed class TrayController : IDisposable
         catch (Exception ex)
         {
             ShowBalloon("llama.cpp Launcher", $"Failed to start the server: {ex.Message}", isError: true);
-            return;
+            return false;
         }
 
         if (!await WaitForPortToBindAsync())
@@ -209,10 +250,11 @@ public sealed class TrayController : IDisposable
 
             // If the process already exited, the ServerExited handler already showed
             // an accurate balloon and refreshed the menu — avoid a duplicate notification.
-            return;
+            return false;
         }
 
         _config.LastRunningModelFileName = profile.FileName;
+        return true;
     }
 
     private async Task<bool> WaitForPortToBindAsync()
@@ -251,46 +293,54 @@ public sealed class TrayController : IDisposable
             ? $"llama.cpp Launcher — Running ({_processManager.RunningModel.Alias})"
             : "llama.cpp Launcher — Stopped");
 
+        // The context menu itself is built fresh in BuildContextMenu() at right-click time (see the
+        // constructor's MouseClick handler) rather than cached here, so it's always in sync with
+        // whatever _config/_processManager state is current at the moment the user actually opens it.
+    }
+
+    private WpfControls.ContextMenu BuildContextMenu()
+    {
+        bool isRunning = _processManager.IsRunning;
         ServiceState state = isRunning ? ServiceState.On : ServiceState.Off;
         TrayMenuState menuState = TrayMenuStateBuilder.Build(state, _config.Models, _config.LastRunningModelFileName);
 
-        var menu = new Forms.ContextMenuStrip();
+        System.Windows.ResourceDictionary resources = System.Windows.Application.Current.Resources;
+        var menu = new WpfControls.ContextMenu { Style = (System.Windows.Style)resources["TrayMenu.ContextMenuStyle"] };
+        var itemStyle = (System.Windows.Style)resources["TrayMenu.MenuItemStyle"];
 
-        var serviceItem = new Forms.ToolStripMenuItem(isRunning ? "Service: On" : "Service: Off");
+        var serviceItem = new WpfControls.MenuItem { Header = isRunning ? "Stop Service" : "Start Service", Style = itemStyle };
         serviceItem.Click += async (_, _) => await ToggleServiceAsync();
         menu.Items.Add(serviceItem);
 
-        var settingsItem = new Forms.ToolStripMenuItem("Settings");
-        settingsItem.Click += (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty);
-        menu.Items.Add(settingsItem);
+        var statusItem = new WpfControls.MenuItem { Header = "Status", Style = itemStyle, FontWeight = System.Windows.FontWeights.Bold };
+        statusItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
+        menu.Items.Add(statusItem);
 
-        var switchItem = new Forms.ToolStripMenuItem("Switch") { Enabled = menuState.SwitchEnabled };
+        var switchItem = new WpfControls.MenuItem { Header = "Switch", Style = itemStyle, IsEnabled = menuState.SwitchEnabled };
         foreach (SwitchMenuEntry entry in menuState.SwitchEntries)
         {
-            var entryItem = new Forms.ToolStripMenuItem(entry.IsCurrent ? $"● {entry.Alias}" : entry.Alias)
+            var entryItem = new WpfControls.MenuItem
             {
-                Font = entry.IsCurrent
-                    ? new Drawing.Font(Forms.Control.DefaultFont, Drawing.FontStyle.Bold)
-                    : Forms.Control.DefaultFont
+                Header = entry.IsCurrent ? $"● {entry.Alias}" : entry.Alias,
+                Style = itemStyle,
+                FontWeight = entry.IsCurrent ? System.Windows.FontWeights.Bold : System.Windows.FontWeights.Normal
             };
             entryItem.Click += async (_, _) => await SwitchToAsync(entry.FileName);
-            switchItem.DropDownItems.Add(entryItem);
+            switchItem.Items.Add(entryItem);
         }
         menu.Items.Add(switchItem);
 
-        var aboutItem = new Forms.ToolStripMenuItem("About");
-        aboutItem.Click += (_, _) => AboutRequested?.Invoke(this, EventArgs.Empty);
-        menu.Items.Add(aboutItem);
+        var settingsItem = new WpfControls.MenuItem { Header = "Settings", Style = itemStyle };
+        settingsItem.Click += (_, _) => SettingsRequested?.Invoke(this, EventArgs.Empty);
+        menu.Items.Add(settingsItem);
 
-        menu.Items.Add(new Forms.ToolStripSeparator());
+        menu.Items.Add(new WpfControls.Separator { Style = (System.Windows.Style)resources["TrayMenu.SeparatorStyle"] });
 
-        var exitItem = new Forms.ToolStripMenuItem("Exit");
+        var exitItem = new WpfControls.MenuItem { Header = "Exit", Style = itemStyle };
         exitItem.Click += (_, _) => ExitRequested?.Invoke(this, EventArgs.Empty);
         menu.Items.Add(exitItem);
 
-        Forms.ContextMenuStrip? previousMenu = _notifyIcon.ContextMenuStrip;
-        _notifyIcon.ContextMenuStrip = menu;
-        previousMenu?.Dispose();
+        return menu;
     }
 
     private static string Truncate(string text) => text.Length <= 63 ? text : text[..63];
@@ -301,5 +351,6 @@ public sealed class TrayController : IDisposable
         _notifyIcon.Dispose();
         _colorIcon.Dispose();
         _bwIcon.Dispose();
+        _menuHost.Dispose();
     }
 }

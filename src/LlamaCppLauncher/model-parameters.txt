@@ -1,0 +1,58 @@
+llama.cpp Launcher — Model Parameter Reference
+================================================
+
+These are the per-model fields on the Settings > Models page, what llama-server
+flag each one maps to, and the default value a newly-discovered model starts with.
+
+Alias (--alias)
+  Default: the .gguf file name without its extension.
+  A friendly name for this model. Shown in the tray's Switch submenu, in the
+  About window, and reported by llama-server's own /v1/models API as the
+  model's id.
+
+CTX_SIZE (-c)
+  Default: 8192
+  The context window size, in tokens. Higher values let the model see more
+  conversation/document history at once, at the cost of more memory (RAM
+  and/or VRAM) and slower prompt processing.
+
+N_GPU_LAYERS (-ngl)
+  Default: 0
+  How many of the model's layers to offload to the GPU. 0 means CPU-only.
+  Set this as high as your GPU's VRAM allows for the best performance; if
+  it's set too high for the available VRAM, llama-server will fail to start
+  or fall back to CPU for the layers that don't fit.
+
+KV cache quantization (-ctk / -ctv)
+  Default: q8_0
+  Options: q8_0, f16, q4_0
+  Controls the precision used for the attention key/value cache.
+  - f16: full precision, most memory, best quality.
+  - q8_0: a good balance of memory savings and quality (the default here).
+  - q4_0: smallest memory footprint, some quality loss.
+
+Batch size (-b)
+  Default: 2048
+  How many tokens are processed together per batch during prompt evaluation.
+  Larger batches can improve throughput on capable hardware but use more
+  memory.
+
+Enable Flash Attention (--flash-attn)
+  Default: off
+  A faster, more memory-efficient attention implementation. Enable it if
+  your llama.cpp build and GPU support it — it's usually a straightforward
+  win when available.
+
+Threads (--threads)
+  Default: auto (not set — llama-server picks a thread count itself)
+  Not currently exposed in this page's UI; can still be set via a hand-edited
+  Command line (see below) if you need to override the automatic choice.
+
+Command line
+  The Generate button assembles all of the fields above (plus this app's
+  Host/Port and the resolved model file path) into one concrete command
+  line, shown in the editable box beneath it. You can hand-edit that text
+  freely — quote any path that contains spaces. Once saved, THIS is what
+  actually gets run to start the model; the structured fields above are
+  only used to (re-)generate it, or as a fallback if the command line box
+  is left empty.

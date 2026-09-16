@@ -28,7 +28,9 @@ dotnet publish LlamaCppLauncher/LlamaCppLauncher.csproj -c Release -r win-x64 --
 ```
 
 The output `publish/LlamaCppLauncher.exe` runs on a machine with no .NET runtime
-installed. On first launch (no `config.json` yet in
-`%LOCALAPPDATA%\LlamaCppLauncher`), it opens the Settings window automatically —
-point "llama.cpp executable path" at your `llama-server.exe`, "Models directory"
-at a folder of `.gguf` files, pick a Default Model on the Models page, and Save.
+installed. It's portable: `config.json` and the `logs\` folder are created next to
+the exe itself, not under `%LOCALAPPDATA%`, so the whole `publish\` folder can be
+copied/moved as a unit. On first launch (no `config.json` yet next to the exe), it
+opens the Settings window automatically — point "llama.cpp executable path" at your
+`llama-server.exe`, "Models directory" at a folder of `.gguf` files, pick a Default
+Model on the Models page, and Save.

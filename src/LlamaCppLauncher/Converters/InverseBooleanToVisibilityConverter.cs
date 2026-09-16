@@ -1,9 +1,9 @@
-// src/LlamaCppLauncher/About/InverseBooleanToVisibilityConverter.cs
+// src/LlamaCppLauncher/Converters/InverseBooleanToVisibilityConverter.cs
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 
-namespace LlamaCppLauncher.About;
+namespace LlamaCppLauncher.Converters;
 
 public sealed class InverseBooleanToVisibilityConverter : IValueConverter
 {

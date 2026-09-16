@@ -1,19 +1,41 @@
-using System;
+using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace LlamaCppLauncher.Config;
 
-public sealed class ModelProfile
+public sealed partial class ModelProfile : ObservableObject
 {
-    public string FileName { get; set; } = string.Empty;
-    public string Alias { get; set; } = string.Empty;
-    public int CtxSize { get; set; } = 8192;
-    public int NGpuLayers { get; set; }
-    public string KvCacheType { get; set; } = "q8_0";
-    public int? Threads { get; set; }
-    public int BatchSize { get; set; } = 2048;
-    public bool FlashAttention { get; set; }
-    public bool IsDefault { get; set; }
-    public string ExtraArguments { get; set; } = string.Empty;
+    [ObservableProperty]
+    private string _fileName = string.Empty;
+
+    [ObservableProperty]
+    private string _alias = string.Empty;
+
+    [ObservableProperty]
+    private int _ctxSize = 8192;
+
+    [ObservableProperty]
+    private int _nGpuLayers;
+
+    [ObservableProperty]
+    private string _kvCacheType = "q8_0";
+
+    [ObservableProperty]
+    private int? _threads;
+
+    [ObservableProperty]
+    private int _batchSize = 2048;
+
+    [ObservableProperty]
+    private bool _flashAttention;
+
+    [ObservableProperty]
+    private bool _isDefault;
+
+    /// The literal command line invoked to launch this model, as generated (and possibly hand-edited)
+    /// on the Models settings page. Empty means "not yet generated" — Start falls back to assembling
+    /// one from the structured fields above (see LlamaServerArgumentBuilder.Build).
+    [ObservableProperty]
+    private string _commandLine = string.Empty;
 
     public static ModelProfile CreateDefault(string fileName)
     {
@@ -28,7 +50,7 @@ public sealed class ModelProfile
             BatchSize = 2048,
             FlashAttention = false,
             IsDefault = false,
-            ExtraArguments = string.Empty
+            CommandLine = string.Empty
         };
     }
 }
