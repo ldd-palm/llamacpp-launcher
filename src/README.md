@@ -3,6 +3,15 @@
 A Windows tray launcher for `llama-server.exe`. See `../SPEC.md` for the full
 feature specification.
 
+## Download
+
+Latest release: [v1.0](https://github.com/ldd-palm/llamacpp-launcher/releases/tag/v1.0)
+
+| Package | Size | Requires |
+|---|---|---|
+| [LlamaCppLauncher-v1.0-win-x64-framework-dependent.zip](https://github.com/ldd-palm/llamacpp-launcher/releases/download/v1.0/LlamaCppLauncher-v1.0-win-x64-framework-dependent.zip) | ~2.9 MB | .NET 8 Desktop Runtime installed |
+| [LlamaCppLauncher-v1.0-win-x64-self-contained.zip](https://github.com/ldd-palm/llamacpp-launcher/releases/download/v1.0/LlamaCppLauncher-v1.0-win-x64-self-contained.zip) | ~68 MB | Nothing — runtime is bundled |
+
 ## Build
 
 ```
